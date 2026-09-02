@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("affiche le contenu principal et son titre", async ({ page }) => {
+test("redirige un visiteur non connecté vers la connexion", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("main")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "SAE Platform" })).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Espace privé" })).toBeVisible();
 });

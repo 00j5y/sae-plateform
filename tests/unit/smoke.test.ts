@@ -2,7 +2,7 @@ import { JSDOM } from "jsdom";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import RootLayout from "../../app/layout";
-import HomePage from "../../app/page";
+import LoginPage from "../../app/(auth)/login/page";
 
 if (typeof document === "undefined") {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -22,10 +22,10 @@ describe("socle applicatif", () => {
     expect(typeof RootLayout).toBe("function");
   });
 
-  it("affiche le contenu principal et son titre", () => {
-    render(createElement(HomePage));
+  it("affiche l’écran de connexion", () => {
+    render(createElement(LoginPage));
 
     expect(screen.getByRole("main")).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 1, name: "SAE Platform" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Espace privé" })).toBeTruthy();
   });
 });
