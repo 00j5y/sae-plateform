@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "supabase test db supabase/tests/discord_identity.sql",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
