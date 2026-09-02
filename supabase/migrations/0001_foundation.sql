@@ -28,6 +28,23 @@ create trigger profiles_set_updated_at
 before update on public.profiles
 for each row execute function public.set_updated_at();
 
+create or replace function public.prevent_discord_id_change()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.discord_id is distinct from old.discord_id then
+    raise exception 'discord_id cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_prevent_discord_id_change
+before update on public.profiles
+for each row execute function public.prevent_discord_id_change();
+
 create or replace function public.is_active_member()
 returns boolean
 language sql
