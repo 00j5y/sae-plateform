@@ -2,6 +2,9 @@
 .worktrees/
 .next/
 node_modules/
-.env
-.env.local
-.env.*.local
+coverage/
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo
+.env*
+!.env.example
