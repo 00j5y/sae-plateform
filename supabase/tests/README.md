@@ -19,6 +19,7 @@ bun run test:db
    SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET=
    ```
 
-3. Redémarrer la stack locale pour recharger la configuration : `supabase stop && supabase start`.
+3. Pour tester OAuth, remplacer localement `enabled = false` par `enabled = true` dans la section `[auth.external.discord]` de `supabase/config.toml`. Ne pas commiter cette modification.
+4. Redémarrer la stack locale pour recharger la configuration : `supabase stop && supabase start`.
 
-Les identifiants sont lus par `supabase/config.toml` avec `env(...)` et ne doivent jamais être commités.
+La configuration versionnée garde OAuth Discord désactivé : un clone démarre sans variables Discord. Les identifiants sont lus avec `env(...)` uniquement après l’activation locale et ne doivent jamais être commités.
