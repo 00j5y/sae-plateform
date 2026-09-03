@@ -1,6 +1,6 @@
 begin;
 
-select plan(22);
+select plan(23);
 
 -- The following relation assertions are intentionally run before fixtures: without
 -- the Kanban migration, they fail with a clear missing-schema diagnosis.
@@ -140,6 +140,17 @@ select ok(
       and qual like '%is_project_member%'
   ),
   'private attachment reads are tied to task project membership'
+);
+
+select ok(
+  exists (
+    select 1
+    from storage.buckets
+    where id = 'task-attachments'
+      and name = 'task-attachments'
+      and public = false
+  ),
+  'the task attachment bucket exists and is private'
 );
 
 insert into auth.users (

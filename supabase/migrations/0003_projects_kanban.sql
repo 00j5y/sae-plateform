@@ -369,6 +369,14 @@ using (
   )
 );
 
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('task-attachments', 'task-attachments', false, 52428800)
+on conflict (id) do update
+set
+  name = excluded.name,
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit;
+
 drop policy if exists "active members can read permitted task files" on storage.objects;
 
 create policy "project members read task attachments"
