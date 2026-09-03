@@ -17,6 +17,7 @@ export default async function ProtectedLayout({ children }: Readonly<{ children:
         <Link className="brand" href="/">SAE Platform</Link>
         {access.status === "active" ? (
           <nav aria-label="Navigation principale">
+            <Link href="/calendar">Calendrier</Link>
             <Link href="/kanban">Kanban</Link>
             <Link href="/projects">Projets</Link>
             <Link href="/members">Membres</Link>

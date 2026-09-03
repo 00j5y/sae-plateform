@@ -3,9 +3,17 @@ import type { KanbanTask } from "@/lib/kanban/types";
 
 const project = {
   id: "3b189510-dc96-4ea7-8521-b48003063b90",
-  name: "SAE 3.01",
+  name: "SAE Plateforme",
   description: "Données locales réservées au scénario E2E.",
   color: "#6D4AFF",
+  startsOn: null,
+  endsOn: null
+};
+const javaProject = {
+  id: "f06ca2c0-0c2a-4d1a-b441-2fac7ff847ab",
+  name: "SAE Java",
+  description: "Données locales réservées au scénario E2E.",
+  color: "#E06C00",
   startsOn: null,
   endsOn: null
 };
@@ -21,8 +29,9 @@ export function isE2eFixtureMode(environment: Record<string, string | undefined>
 }
 
 export function getE2eKanbanData(projectId?: string): KanbanData {
+  const projects = [project, javaProject];
   return {
-    projects: projectId && projectId !== project.id ? [] : [project],
+    projects: projectId ? projects.filter((item) => item.id === projectId) : projects,
     columns,
     members,
     tasks: projectId ? tasks.filter((task) => task.projectId === projectId) : tasks

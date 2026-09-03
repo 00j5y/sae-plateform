@@ -19,6 +19,7 @@ export function toCalendarItem(row: Record<string, unknown>, kind: "event" | "ta
     memberIds: Array.isArray(row.member_ids) ? row.member_ids.filter((id): id is string => typeof id === "string") : [],
   };
   if (kind === "event") { item.end = row.ends_at as string; item.eventType = eventType as CalendarEventType; }
+  if (kind === "event" && typeof row.description === "string") item.description = row.description;
   return item;
 }
 

@@ -13,6 +13,7 @@ export type CalendarItem = {
   completed: boolean;
   memberIds: string[];
   eventType?: CalendarEventType;
+  description?: string;
 };
 
 export type CalendarFilters = {
