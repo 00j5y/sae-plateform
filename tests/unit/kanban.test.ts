@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterKanbanTasks, validateTaskImage } from "@/lib/kanban/utils";
+import { filterKanbanTasks, isTaskAttachmentPath, validateTaskImage } from "@/lib/kanban/utils";
 
 const tasks = [
   {
@@ -61,5 +61,21 @@ describe("validateTaskImage", () => {
       ok: false,
       message: "L’image ne doit pas dépasser 5 MiB."
     });
+  });
+});
+
+describe("isTaskAttachmentPath", () => {
+  const projectId = "3b189510-dc96-4ea7-8521-b48003063b90";
+  const taskId = "c5a30d2b-34e6-494e-9c4b-4987df0c5b1b";
+  const uploadId = "550e8400-e29b-41d4-a716-446655440000";
+
+  it("accepts only the exact project/task/UUID v4 storage path", () => {
+    expect(isTaskAttachmentPath(`${projectId}/${taskId}/${uploadId}`, projectId, taskId)).toBe(true);
+  });
+
+  it("rejects suffixes, extensions and a UUID that is not v4", () => {
+    expect(isTaskAttachmentPath(`${projectId}/${taskId}/${uploadId}.png`, projectId, taskId)).toBe(false);
+    expect(isTaskAttachmentPath(`${projectId}/${taskId}/550e8400-e29b-31d4-a716-446655440000`, projectId, taskId)).toBe(false);
+    expect(isTaskAttachmentPath(`${projectId}/other/${uploadId}`, projectId, taskId)).toBe(false);
   });
 });

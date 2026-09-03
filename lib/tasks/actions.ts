@@ -6,6 +6,7 @@ import { getCurrentMemberAccess } from "@/lib/auth/access";
 import { createClient } from "@/lib/supabase/server";
 import { taskInputFromFormData, taskSchema } from "@/lib/validations/task";
 import { nextPosition } from "@/lib/tasks/reorder";
+import { createE2eFixtureTask, isE2eFixtureMode } from "@/lib/kanban/e2e-fixture";
 import { z } from "zod";
 
 type TaskSummary = {
@@ -90,14 +91,19 @@ async function assigneesBelongToProject(caller: ActiveCaller, projectId: string,
 
 export async function createTask(formData: FormData): Promise<TaskActionResult> {
   try {
-    const caller = await getActiveCaller();
-    if (!caller) {
-      return { ok: false, message: "Seuls les membres actifs connectés peuvent créer une tâche." };
-    }
-
     const parsed = taskSchema.safeParse(taskInputFromFormData(formData));
     if (!parsed.success) {
       return { ok: false, message: "Les informations de la tâche sont invalides." };
+    }
+
+    if (isE2eFixtureMode()) {
+      const task = createE2eFixtureTask(parsed.data);
+      return { ok: true, task: { id: task.id, title: task.title } };
+    }
+
+    const caller = await getActiveCaller();
+    if (!caller) {
+      return { ok: false, message: "Seuls les membres actifs connectés peuvent créer une tâche." };
     }
 
     if (!await isProjectMember(caller, parsed.data.projectId)) {

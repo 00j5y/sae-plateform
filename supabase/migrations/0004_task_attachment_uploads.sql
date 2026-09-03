@@ -2,7 +2,9 @@ alter table storage.buckets
   alter column file_size_limit set default 5242880;
 
 update storage.buckets
-set file_size_limit = 5242880
+set
+  file_size_limit = 5242880,
+  allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp']::text[]
 where id = 'task-attachments';
 
 create or replace function public.can_manage_task_attachment_path(target_name text)
@@ -13,7 +15,7 @@ security definer
 set search_path = pg_catalog, public, storage
 as $$
 begin
-  if target_name !~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$' then
+  if target_name !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
     return false;
   end if;
   return exists (

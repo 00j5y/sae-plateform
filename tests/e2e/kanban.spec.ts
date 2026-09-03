@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-if (!process.versions.bun) {
+if (!process.versions.bun || process.env.PLAYWRIGHT_TEST_RUNNER === "true") {
   test("un membre actif peut créer une tâche depuis le Kanban", async ({ page }) => {
     await page.context().addCookies([{
       name: "sae-e2e-member-status",

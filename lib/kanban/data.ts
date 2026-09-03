@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { KanbanColumn, KanbanMember, KanbanTask, Project, TaskAttachment, TaskComment } from "@/lib/kanban/types";
+import { getE2eKanbanData, isE2eFixtureMode } from "@/lib/kanban/e2e-fixture";
 import { createClient } from "@/lib/supabase/server";
 
 type RawProfile = { id: string; username: string; display_name: string | null };
@@ -24,6 +25,7 @@ function nameFor(profile: RawProfile | undefined) {
 }
 
 export async function getKanbanData(projectId?: string): Promise<KanbanData> {
+  if (isE2eFixtureMode()) return getE2eKanbanData(projectId);
   const supabase = await createClient();
   let taskQuery = supabase
     .from("tasks")

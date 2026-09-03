@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentMemberAccess } from "@/lib/auth/access";
-import { taskImageConstraints } from "@/lib/kanban/utils";
+import { isTaskAttachmentPath, taskImageConstraints } from "@/lib/kanban/utils";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { ok: false; message: string };
@@ -94,7 +94,7 @@ export async function createAttachmentUpload(input: z.infer<typeof uploadSchema>
   try {
     const caller = await activeCaller();
     const parsed = uploadSchema.safeParse(input);
-    if (!caller || !parsed.success || !parsed.data.path.startsWith(`${parsed.data.projectId}/${parsed.data.taskId}/`)) {
+    if (!caller || !parsed.success || !isTaskAttachmentPath(parsed.data.path, parsed.data.projectId, parsed.data.taskId)) {
       return { ok: false as const, message: "Le fichier est invalide." };
     }
     const task = await memberTask(caller, parsed.data.taskId);
@@ -111,7 +111,7 @@ export async function registerTaskAttachment(input: z.infer<typeof uploadSchema>
   try {
     const caller = await activeCaller();
     const parsed = uploadSchema.safeParse(input);
-    if (!caller || !parsed.success || !parsed.data.path.startsWith(`${parsed.data.projectId}/${parsed.data.taskId}/`)) {
+    if (!caller || !parsed.success || !isTaskAttachmentPath(parsed.data.path, parsed.data.projectId, parsed.data.taskId)) {
       return { ok: false, message: "Le fichier est invalide." };
     }
     const task = await memberTask(caller, parsed.data.taskId);

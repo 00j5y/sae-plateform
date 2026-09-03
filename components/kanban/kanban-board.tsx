@@ -86,7 +86,7 @@ export function KanbanBoard({ projects, columns, members, tasks, currentUserId, 
           {visibleColumns.map((column) => <div className="kanban-column-wrapper" data-mobile-hidden={activeColumn !== column.id || undefined} key={column.id}><KanbanColumnLane column={column} onOpen={openTask} projects={projects} tasks={filteredTasks.filter((task) => task.columnId === column.id)} /></div>)}
         </div>
       </DndContext>
-      <TaskDialog columns={columns} currentUserId={currentUserId} defaultColumnId={activeColumn} defaultProjectId={projectId} members={members} mode={dialog === "details" ? "details" : "create"} onClose={closeDialog} open={dialog !== null} projects={projects} task={selectedTask} />
+      {dialog ? <TaskDialog columns={columns} currentUserId={currentUserId} defaultColumnId={activeColumn} defaultProjectId={projectId} members={members} mode={dialog === "details" ? "details" : "create"} onAnnounce={setMessage} onClose={closeDialog} open projects={projects} task={selectedTask} /> : null}
     </section>
   );
 }

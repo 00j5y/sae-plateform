@@ -47,3 +47,12 @@ export const taskImageConstraints = {
   acceptedTypes: [...acceptedTaskImageTypes],
   maxSize: maxTaskImageSize
 };
+
+const uuidV4Pattern = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const uuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const taskAttachmentPathPattern = new RegExp(`^(${uuidPattern})/(${uuidPattern})/(${uuidV4Pattern})$`, "i");
+
+export function isTaskAttachmentPath(path: string, projectId: string, taskId: string) {
+  const matches = taskAttachmentPathPattern.exec(path);
+  return Boolean(matches && matches[1].toLowerCase() === projectId.toLowerCase() && matches[2].toLowerCase() === taskId.toLowerCase());
+}
