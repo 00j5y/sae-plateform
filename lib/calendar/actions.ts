@@ -31,13 +31,14 @@ export async function getCalendarEvents(search?: URLSearchParams): Promise<Calen
     const c = await caller();
     if (!c) return { ok: false, message: "Seuls les membres actifs connectés peuvent consulter le calendrier." };
     const filters = search ? parseCalendarFilters(search) : {};
-    let query = c.supabase.from("calendar_events").select("id,title,project_id,event_type,starts_at,ends_at,description").order("starts_at");
+    let query = c.supabase.from("calendar_events").select("id,title,project_id,event_type,starts_at,ends_at,description,created_by").order("starts_at");
     if (filters.projectId) query = query.eq("project_id", filters.projectId);
     if (filters.type) query = query.eq("event_type", dbType(filters.type));
     const { data, error } = await query;
     if (error) return { ok: false, message: "Impossible de charger le calendrier pour le moment." };
-    const items = (data ?? []).map((row) => toCalendarItem(row as Record<string, unknown>, "event"));
-    return { ok: true, data: filters.query ? items.filter((item) => item.title.toLocaleLowerCase().includes(filters.query!.toLocaleLowerCase())) : items };
+    const items = (data ?? []).map((row) => toCalendarItem({ ...row, member_ids: [row.created_by] } as Record<string, unknown>, "event")).filter((item): item is CalendarItem => item !== null);
+    const memberItems = filters.memberId ? items.filter((item) => item.memberIds.includes(filters.memberId!)) : items;
+    return { ok: true, data: filters.query ? memberItems.filter((item) => item.title.toLocaleLowerCase().includes(filters.query!.toLocaleLowerCase())) : memberItems };
   } catch { return { ok: false, message: "Impossible de charger le calendrier pour le moment." }; }
 }
 

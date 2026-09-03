@@ -9,8 +9,9 @@ export type CalendarItem = {
   projectId: string;
   kind: CalendarItemKind;
   editable: boolean;
-  color?: string;
-  completed?: boolean;
+  color: string;
+  completed: boolean;
+  memberIds: string[];
   eventType?: CalendarEventType;
 };
 
