@@ -2,6 +2,7 @@
 
 import "server-only";
 
+import { revalidatePath } from "next/cache";
 import { getCurrentMemberAccess } from "@/lib/auth/access";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -94,6 +95,7 @@ export async function createProject(
       return { ok: false, message: "Impossible de créer le projet pour le moment." };
     }
 
+    revalidatePath("/projects");
     return { ok: true, project: { id: project.id, name: project.name } };
   } catch {
     return { ok: false, message: "Impossible de créer le projet pour le moment." };

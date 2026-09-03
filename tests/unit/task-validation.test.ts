@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { taskSchema } from "@/lib/validations/task";
+import { taskInputFromFormData, taskSchema } from "@/lib/validations/task";
 
 const validTask = {
   projectId: "3b189510-dc96-4ea7-8521-b48003063b90",
@@ -44,5 +44,15 @@ describe("taskSchema", () => {
   it("rejects an invalid deadline or color", () => {
     expect(taskSchema.safeParse({ ...validTask, dueAt: "tomorrow" }).success).toBe(false);
     expect(taskSchema.safeParse({ ...validTask, color: "violet" }).success).toBe(false);
+  });
+
+  it("normalizes a datetime-local task deadline to an ISO datetime", () => {
+    const formData = new FormData();
+    formData.set("projectId", validTask.projectId);
+    formData.set("columnId", validTask.columnId);
+    formData.set("title", validTask.title);
+    formData.set("dueAt", "2026-09-10T14:30");
+
+    expect(taskSchema.safeParse(taskInputFromFormData(formData)).success).toBe(true);
   });
 });

@@ -1,13 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { createProject, type ProjectActionResult } from "@/lib/projects/actions";
 
 const initialState: ProjectActionResult | null = null;
 
 export function ProjectForm() {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(createProject, initialState);
+
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [router, state]);
 
   return (
     <form action={formAction}>
