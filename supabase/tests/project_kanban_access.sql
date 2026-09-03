@@ -1,6 +1,6 @@
 begin;
 
-select plan(40);
+select plan(42);
 
 -- The following relation assertions are intentionally run before fixtures: without
 -- the Kanban migration, they fail with a clear missing-schema diagnosis.
@@ -171,6 +171,37 @@ select ok(
       and qual like '%is_project_member%'
   ),
   'private attachment reads are tied to task project membership'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'task_attachments'
+      and policyname = 'uploaders can delete task attachments'
+      and cmd = 'DELETE'
+      and coalesce(qual, '') like '%uploaded_by%'
+      and coalesce(qual, '') like '%auth.uid%'
+      and coalesce(qual, '') like '%is_project_member%'
+  ),
+  'attachment metadata can only be deleted by its uploader while a project member'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'uploaders delete task attachment objects'
+      and cmd = 'DELETE'
+      and coalesce(qual, '') like '%task_attachments%'
+      and coalesce(qual, '') like '%uploaded_by%'
+      and coalesce(qual, '') like '%auth.uid%'
+      and coalesce(qual, '') like '%is_project_member%'
+  ),
+  'attachment objects can only be deleted by their uploader while a project member'
 );
 
 select ok(

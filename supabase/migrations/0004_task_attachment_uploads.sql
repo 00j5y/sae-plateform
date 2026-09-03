@@ -40,9 +40,31 @@ with check (
 );
 
 drop policy if exists "project members delete task attachments" on storage.objects;
-create policy "project members delete task attachments"
+drop policy if exists "uploaders delete task attachment objects" on storage.objects;
+create policy "uploaders delete task attachment objects"
 on storage.objects for delete to authenticated
 using (
   bucket_id = 'task-attachments'
-  and public.can_manage_task_attachment_path(name)
+  and exists (
+    select 1
+    from public.task_attachments attachments
+    join public.tasks on tasks.id = attachments.task_id
+    where attachments.path = name
+      and attachments.uploaded_by = (select auth.uid())
+      and public.is_project_member(tasks.project_id)
+  )
+);
+
+drop policy if exists "project members can delete task attachments" on public.task_attachments;
+drop policy if exists "uploaders can delete task attachments" on public.task_attachments;
+create policy "uploaders can delete task attachments"
+on public.task_attachments for delete to authenticated
+using (
+  uploaded_by = (select auth.uid())
+  and exists (
+    select 1
+    from public.tasks
+    where tasks.id = task_attachments.task_id
+      and public.is_project_member(tasks.project_id)
+  )
 );
