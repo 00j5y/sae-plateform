@@ -3,6 +3,7 @@ import "server-only";
 import { getE2eKanbanData, isE2eFixtureMode } from "@/lib/kanban/e2e-fixture";
 import { getKanbanData } from "@/lib/kanban/data";
 import { toCalendarItem } from "@/lib/calendar/query";
+import { toCalendarTaskItems } from "@/lib/calendar/task-items";
 import type { CalendarItem } from "@/lib/calendar/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,18 +22,10 @@ function eventFixture(): CalendarItem[] {
   ];
 }
 
-function taskItems(tasks: Awaited<ReturnType<typeof getKanbanData>>["tasks"]): CalendarItem[] {
-  return tasks.filter((task) => Boolean(task.dueAt)).map((task) => ({
-    id: `task:${task.id}`, title: task.title, start: task.dueAt!, projectId: task.projectId,
-    kind: "task", editable: false, color: task.color, completed: false,
-    memberIds: task.assignees.map((member) => member.id)
-  }));
-}
-
 export async function getCalendarData(): Promise<CalendarData> {
   if (isE2eFixtureMode()) {
     const data = getE2eKanbanData();
-    return { ...data, items: eventFixture() };
+    return { ...data, items: [...eventFixture(), ...toCalendarTaskItems(data.tasks, data.columns)] };
   }
 
   const kanban = await getKanbanData();
@@ -44,5 +37,5 @@ export async function getCalendarData(): Promise<CalendarData> {
   if (error) throw new Error("Impossible de charger le calendrier pour le moment.");
   const eventItems = (events ?? []).map((event) => toCalendarItem({ ...event, member_ids: [event.created_by] }, "event"))
     .filter((event): event is CalendarItem => event !== null);
-  return { ...kanban, items: [...eventItems, ...taskItems(kanban.tasks)] };
+  return { ...kanban, items: [...eventItems, ...toCalendarTaskItems(kanban.tasks, kanban.columns)] };
 }

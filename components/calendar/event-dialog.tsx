@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "@/lib/calendar/actions";
+import { getDialogAnchor, type DialogAnchor, type DialogSourceRect } from "@/lib/calendar/dialog-anchor";
 import type { CalendarItem, CalendarEventType } from "@/lib/calendar/types";
 import { focusTrapIndex } from "@/lib/kanban/dialog-focus";
 import type { Project } from "@/lib/kanban/types";
 
-type Props = { event?: CalendarItem; projects: Project[]; onClose: () => void; onAnnounce: (message: string) => void };
+type Props = { event?: CalendarItem; projects: Project[]; sourceRect?: DialogSourceRect; onClose: () => void; onAnnounce: (message: string) => void };
 const focusableSelector = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex='-1'])";
 
 function localDate(value?: string) {
@@ -17,11 +18,12 @@ function localDate(value?: string) {
   return date.toISOString().slice(0, 16);
 }
 
-export function EventDialog({ event, projects, onClose, onAnnounce }: Props) {
+export function EventDialog({ event, projects, sourceRect, onClose, onAnnounce }: Props) {
   const router = useRouter();
   const dialogRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const [message, setMessage] = useState("");
+  const [anchor, setAnchor] = useState<DialogAnchor>();
   const [pending, startTransition] = useTransition();
   const editing = Boolean(event);
   useEffect(() => {
@@ -30,6 +32,11 @@ export function EventDialog({ event, projects, onClose, onAnnounce }: Props) {
     initial?.focus();
     return () => returnFocusRef.current?.focus();
   }, []);
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || !sourceRect) { setAnchor(undefined); return; }
+    setAnchor(getDialogAnchor(sourceRect, { width: window.innerWidth, height: window.innerHeight }, { width: dialog.offsetWidth, height: dialog.offsetHeight }));
+  }, [sourceRect]);
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
     if (event.key !== "Tab") return;
@@ -58,7 +65,7 @@ export function EventDialog({ event, projects, onClose, onAnnounce }: Props) {
     if (!result.ok) { setMessage(result.message); onAnnounce(result.message); return; }
     onAnnounce("Événement supprimé."); router.refresh(); onClose();
   });
-  return <div className="dialog-backdrop"><section aria-labelledby="calendar-event-title" aria-modal="true" className="task-dialog calendar-dialog" onKeyDown={onKeyDown} ref={dialogRef} role="dialog">
+  return <div className="dialog-backdrop"><section aria-labelledby="calendar-event-title" aria-modal="true" className="task-dialog calendar-dialog" onKeyDown={onKeyDown} ref={dialogRef} role="dialog" style={anchor ? { position: "fixed", top: anchor.top, left: anchor.left } : undefined}>
     <button aria-label="Fermer l’événement" className="dialog-close" onClick={onClose} type="button">×</button>
     <p className="eyebrow">Calendrier</p><h2 id="calendar-event-title">{editing ? "Modifier l’événement" : "Nouvel événement"}</h2>
     {projects.length === 0 ? <p className="form-error" role="alert">Vous devez être membre d’une SAE pour créer un événement.</p> : <form className="task-form" onSubmit={onSubmit}>
