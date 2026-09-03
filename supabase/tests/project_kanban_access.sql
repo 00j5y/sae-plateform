@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(33);
 
 -- The following relation assertions are intentionally run before fixtures: without
 -- the Kanban migration, they fail with a clear missing-schema diagnosis.
@@ -107,6 +107,23 @@ select ok(
   'there is no permanent project-creator privilege helper'
 );
 
+select ok(
+  not exists (
+    select 1
+    from pg_proc
+    join pg_namespace on pg_namespace.oid = pg_proc.pronamespace
+    where nspname = 'public'
+      and proname = 'can_bootstrap_project_membership'
+  ),
+  'there is no direct project-membership bootstrap helper'
+);
+
+select ok(
+  pg_get_functiondef('public.is_project_member(uuid)'::regprocedure) like '%public.profiles%'
+  and pg_get_functiondef('public.is_project_member(uuid)'::regprocedure) like '%status = ''active''%',
+  'is_project_member requires the caller profile to remain active'
+);
+
 select results_eq(
   $$
     select tablename
@@ -160,13 +177,15 @@ insert into auth.users (
 values
   ('b1111111-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-owner@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('b2222222-2222-4222-8222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-outsider@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
-  ('b3333333-3333-4333-8333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-unassigned@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
+  ('b3333333-3333-4333-8333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-unassigned@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('b6666666-6666-4666-8666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-pending@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
 insert into public.profiles (id, discord_id, username, status)
 values
   ('b1111111-1111-4111-8111-111111111111', '11111111111111111', 'kanban_owner', 'active'),
   ('b2222222-2222-4222-8222-222222222222', '22222222222222222', 'kanban_outsider', 'active'),
-  ('b3333333-3333-4333-8333-333333333333', '33333333333333333', 'kanban_unassigned', 'active');
+  ('b3333333-3333-4333-8333-333333333333', '33333333333333333', 'kanban_unassigned', 'active'),
+  ('b6666666-6666-4666-8666-666666666666', '66666666666666666', 'kanban_pending', 'pending');
 
 insert into public.projects (id, name, created_by)
 values ('b4444444-4444-4444-8444-444444444444', 'Kanban access fixture', 'b1111111-1111-4111-8111-111111111111');
@@ -182,28 +201,90 @@ select ok(
   'a project member is recognized under the authenticated role'
 );
 
-select lives_ok(
+select ok(
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'projects'
+      and cmd = 'INSERT'
+  ),
+  'projects have no direct INSERT policy outside the atomic RPC'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'project_members'
+      and policyname = 'members can add project memberships'
+      and coalesce(with_check, '') like '%is_active_member%'
+      and coalesce(with_check, '') like '%profiles%'
+      and coalesce(with_check, '') like '%status%'
+  ),
+  'membership inserts require active callers and active target profiles'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.create_project_with_creator(text, text, text, date, date)', 'execute'),
+  'authenticated users may create a project through the atomic RPC'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.create_project_with_creator(text, text, text, date, date)', 'execute'),
+  'anonymous users cannot execute the project-creation RPC'
+);
+
+select throws_like(
   $$
     insert into public.projects (id, name, created_by)
     values (
       'b5555555-5555-4555-8555-555555555555',
-      'Membership bootstrap fixture',
+      'Direct creation must fail',
       'b1111111-1111-4111-8111-111111111111'
     )
   $$,
-  'an active member can create a project'
+  '%row-level security%',
+  'an active member cannot create a project directly'
 );
 
 select lives_ok(
   $$
+    select public.create_project_with_creator(
+      'Atomic project fixture',
+      '',
+      '#6D4AFF',
+      null,
+      null
+    )
+  $$,
+  'an active member creates a project and membership through the RPC'
+);
+
+select is(
+  (
+    select count(*)
+    from public.projects
+    join public.project_members on project_members.project_id = projects.id
+    where projects.name = 'Atomic project fixture'
+      and project_members.profile_id = 'b1111111-1111-4111-8111-111111111111'
+  ),
+  1::bigint,
+  'the RPC creates the creator membership atomically'
+);
+
+select throws_like(
+  $$
     insert into public.project_members (project_id, profile_id, added_by)
     values (
-      'b5555555-5555-4555-8555-555555555555',
-      'b1111111-1111-4111-8111-111111111111',
+      'b4444444-4444-4444-8444-444444444444',
+      'b6666666-6666-4666-8666-666666666666',
       'b1111111-1111-4111-8111-111111111111'
     )
   $$,
-  'a project creator can bootstrap only their first membership'
+  '%row-level security%',
+  'a project member cannot add a pending profile through REST'
 );
 
 select lives_ok(
@@ -229,6 +310,27 @@ select throws_like(
   $$,
   '%row-level security%',
   'a task cannot be assigned to someone outside its project'
+);
+
+reset role;
+update public.profiles
+set status = 'pending'
+where id = 'b1111111-1111-4111-8111-111111111111';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'b1111111-1111-4111-8111-111111111111', true);
+
+select ok(
+  not public.is_project_member('b4444444-4444-4444-8444-444444444444'),
+  'a member reverted to pending is no longer recognized as a project member'
+);
+
+select is_empty(
+  $$
+    select 1
+    from public.tasks
+    where project_id = 'b4444444-4444-4444-8444-444444444444'
+  $$,
+  'a member reverted to pending cannot read project tasks'
 );
 
 select set_config('request.jwt.claim.sub', 'b2222222-2222-4222-8222-222222222222', true);

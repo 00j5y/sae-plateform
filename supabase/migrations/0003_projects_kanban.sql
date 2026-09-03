@@ -96,36 +96,15 @@ as $$
   select exists (
     select 1
     from public.project_members
+    join public.profiles on profiles.id = project_members.profile_id
     where project_id = target_project_id
       and profile_id = (select auth.uid())
+      and profiles.status = 'active'
   );
-$$;
-
-create or replace function public.can_bootstrap_project_membership(target_project_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = pg_catalog, public
-as $$
-  select
-    exists (
-      select 1
-      from public.projects
-      where id = target_project_id
-        and created_by = (select auth.uid())
-    )
-    and not exists (
-      select 1
-      from public.project_members
-      where project_id = target_project_id
-    );
 $$;
 
 revoke all on function public.is_project_member(uuid) from public;
 grant execute on function public.is_project_member(uuid) to authenticated;
-revoke all on function public.can_bootstrap_project_membership(uuid) from public;
-grant execute on function public.can_bootstrap_project_membership(uuid) to authenticated;
 
 alter table public.projects enable row level security;
 alter table public.project_members enable row level security;
@@ -138,10 +117,6 @@ alter table public.task_attachments enable row level security;
 create policy "project members can read projects"
 on public.projects for select to authenticated
 using (public.is_project_member(id));
-
-create policy "active members can create projects"
-on public.projects for insert to authenticated
-with check (created_by = (select auth.uid()) and public.is_active_member());
 
 create policy "project members can update projects"
 on public.projects for update to authenticated
@@ -160,18 +135,27 @@ create policy "members can add project memberships"
 on public.project_members for insert to authenticated
 with check (
   public.is_project_member(project_id)
-  or (
-    profile_id = (select auth.uid())
-    and added_by = (select auth.uid())
-    and public.is_active_member()
-    and public.can_bootstrap_project_membership(project_id)
+  and public.is_active_member()
+  and exists (
+    select 1
+    from public.profiles
+    where profiles.id = project_members.profile_id
+      and profiles.status = 'active'
   )
 );
 
 create policy "project members can update memberships"
 on public.project_members for update to authenticated
 using (public.is_project_member(project_id))
-with check (public.is_project_member(project_id));
+with check (
+  public.is_project_member(project_id)
+  and exists (
+    select 1
+    from public.profiles
+    where profiles.id = project_members.profile_id
+      and profiles.status = 'active'
+  )
+);
 
 create policy "project members can delete memberships"
 on public.project_members for delete to authenticated
