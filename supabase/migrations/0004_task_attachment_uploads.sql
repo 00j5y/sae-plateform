@@ -1,0 +1,70 @@
+alter table storage.buckets
+  alter column file_size_limit set default 5242880;
+
+update storage.buckets
+set
+  file_size_limit = 5242880,
+  allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp']::text[]
+where id = 'task-attachments';
+
+create or replace function public.can_manage_task_attachment_path(target_name text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public, storage
+as $$
+begin
+  if target_name !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+    return false;
+  end if;
+  return exists (
+    select 1
+    from public.tasks
+    where tasks.project_id = split_part(target_name, '/', 1)::uuid
+      and tasks.id = split_part(target_name, '/', 2)::uuid
+      and public.is_project_member(tasks.project_id)
+  );
+end;
+$$;
+
+revoke all on function public.can_manage_task_attachment_path(text) from public;
+grant execute on function public.can_manage_task_attachment_path(text) to authenticated;
+
+drop policy if exists "project members upload task attachments" on storage.objects;
+create policy "project members upload task attachments"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'task-attachments'
+  and public.can_manage_task_attachment_path(name)
+);
+
+drop policy if exists "project members delete task attachments" on storage.objects;
+drop policy if exists "uploaders delete task attachment objects" on storage.objects;
+create policy "uploaders delete task attachment objects"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'task-attachments'
+  and exists (
+    select 1
+    from public.task_attachments attachments
+    join public.tasks on tasks.id = attachments.task_id
+    where attachments.path = name
+      and attachments.uploaded_by = (select auth.uid())
+      and public.is_project_member(tasks.project_id)
+  )
+);
+
+drop policy if exists "project members can delete task attachments" on public.task_attachments;
+drop policy if exists "uploaders can delete task attachments" on public.task_attachments;
+create policy "uploaders can delete task attachments"
+on public.task_attachments for delete to authenticated
+using (
+  uploaded_by = (select auth.uid())
+  and exists (
+    select 1
+    from public.tasks
+    where tasks.id = task_attachments.task_id
+      and public.is_project_member(tasks.project_id)
+  )
+);

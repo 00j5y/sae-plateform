@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+
+import { taskInputFromFormData, taskSchema } from "@/lib/validations/task";
+
+const validTask = {
+  projectId: "3b189510-dc96-4ea7-8521-b48003063b90",
+  columnId: "c5a30d2b-34e6-494e-9c4b-4987df0c5b1b",
+  title: "Préparer la démo",
+  color: "#6D4AFF",
+  dueAt: null
+};
+
+describe("taskSchema", () => {
+  it("rejects an empty title", () => {
+    expect(taskSchema.safeParse({ ...validTask, title: "   " }).success).toBe(false);
+  });
+
+  it("rejects a missing project", () => {
+    expect(taskSchema.safeParse({
+      columnId: validTask.columnId,
+      title: validTask.title,
+      color: validTask.color,
+      dueAt: validTask.dueAt
+    }).success).toBe(false);
+  });
+
+  it("rejects a title longer than 160 characters", () => {
+    expect(taskSchema.safeParse({ ...validTask, title: "a".repeat(161) }).success).toBe(false);
+  });
+
+  it("uses safe defaults for optional task fields", () => {
+    const parsed = taskSchema.parse(validTask);
+
+    expect(parsed.description).toBe("");
+    expect(parsed.assigneeIds).toEqual([]);
+  });
+
+  it("rejects the same assignee more than once", () => {
+    const assigneeId = "68d727c8-dbc8-4856-a387-e22722d7f4d2";
+
+    expect(taskSchema.safeParse({ ...validTask, assigneeIds: [assigneeId, assigneeId] }).success).toBe(false);
+  });
+
+  it("rejects an invalid deadline or color", () => {
+    expect(taskSchema.safeParse({ ...validTask, dueAt: "tomorrow" }).success).toBe(false);
+    expect(taskSchema.safeParse({ ...validTask, color: "violet" }).success).toBe(false);
+  });
+
+  it("normalizes a datetime-local task deadline to an ISO datetime", () => {
+    const formData = new FormData();
+    formData.set("projectId", validTask.projectId);
+    formData.set("columnId", validTask.columnId);
+    formData.set("title", validTask.title);
+    formData.set("dueAt", "2026-09-10T14:30");
+
+    expect(taskSchema.safeParse(taskInputFromFormData(formData)).success).toBe(true);
+  });
+});
