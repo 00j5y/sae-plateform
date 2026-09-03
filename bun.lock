@@ -12,8 +12,8 @@
         "@fullcalendar/list": "^6.1.19",
         "@fullcalendar/react": "^6.1.19",
         "@fullcalendar/timegrid": "^6.1.19",
-        "@supabase/ssr": "^0.7.0",
-        "@supabase/supabase-js": "^2.49.1",
+        "@supabase/ssr": "^0.12.5",
+        "@supabase/supabase-js": "^2.114.0",
         "date-fns": "^4.1.0",
         "lucide-react": "^0.468.0",
         "motion": "^12.0.0",
@@ -403,7 +403,7 @@
 
     "@supabase/realtime-js": ["@supabase/realtime-js@2.114.0", "", { "dependencies": { "@supabase/phoenix": "0.4.5", "tslib": "2.8.1" } }, "sha512-gSkuQrM/etAlUnw9YMDA2e+iNMCLezf0IHyOzmetOqy9KPsGe2C3puTd/4xalirnko+p3BEykFVliHaY2yXVrw=="],
 
-    "@supabase/ssr": ["@supabase/ssr@0.7.0", "", { "dependencies": { "cookie": "^1.0.2" }, "peerDependencies": { "@supabase/supabase-js": "^2.43.4" } }, "sha512-G65t5EhLSJ5c8hTCcXifSL9Q/ZRXvqgXeNo+d3P56f4U1IxwTqjB64UfmfixvmMcjuxnq2yGqEWVJqUcO+AzAg=="],
+    "@supabase/ssr": ["@supabase/ssr@0.12.5", "", { "dependencies": { "cookie": "^1.0.2" }, "peerDependencies": { "@supabase/supabase-js": "^2.112.4" } }, "sha512-0GllaAtHe7FHs6tlSg1CwkFw0a7aai1Shs9rEqSs/HaVkJzPk35C9r0Z8WUtKJ3eY6G/Y5y47YvCro3LynrAJg=="],
 
     "@supabase/storage-js": ["@supabase/storage-js@2.114.0", "", { "dependencies": { "iceberg-js": "^0.8.1", "tslib": "2.8.1" } }, "sha512-leK7YsDVqIKd9hQRJeK03QRZ8Slg2JExmNIj+BL7dkD3m+ZNREJ7ITQdrc7VhNhh8+Eb/ebm1Ts4AOoY4LFSiA=="],
 

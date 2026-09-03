@@ -1,6 +1,3 @@
-alter table storage.buckets
-  alter column file_size_limit set default 5242880;
-
 update storage.buckets
 set
   file_size_limit = 5242880,
