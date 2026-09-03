@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(40);
 
 -- The following relation assertions are intentionally run before fixtures: without
 -- the Kanban migration, they fail with a clear missing-schema diagnosis.
@@ -124,6 +124,20 @@ select ok(
   'is_project_member requires the caller profile to remain active'
 );
 
+select ok(
+  exists (
+    select 1
+    from pg_proc
+    join pg_namespace on pg_namespace.oid = pg_proc.pronamespace
+    where nspname = 'public'
+      and proname = 'create_task_with_assignees'
+      and proargtypes = '2950 2950 25 25 25 1184 2951'::oidvector
+      and prosecdef
+      and proconfig @> array['search_path=pg_catalog, public']
+  ),
+  'create_task_with_assignees is security-definer and uses a safe search path'
+);
+
 select results_eq(
   $$
     select tablename
@@ -178,20 +192,24 @@ values
   ('b1111111-1111-4111-8111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-owner@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('b2222222-2222-4222-8222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-outsider@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('b3333333-3333-4333-8333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-unassigned@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
-  ('b6666666-6666-4666-8666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-pending@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
+  ('b6666666-6666-4666-8666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-pending@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('b7777777-7777-4777-8777-777777777777', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'kanban-assignee@example.test', '$2a$10$9x6adV5CqTkmfUN5lGEJcOuXV44QSwDUMHATVPVTGV3mlAWPwTjQe', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
 insert into public.profiles (id, discord_id, username, status)
 values
   ('b1111111-1111-4111-8111-111111111111', '11111111111111111', 'kanban_owner', 'active'),
   ('b2222222-2222-4222-8222-222222222222', '22222222222222222', 'kanban_outsider', 'active'),
   ('b3333333-3333-4333-8333-333333333333', '33333333333333333', 'kanban_unassigned', 'active'),
-  ('b6666666-6666-4666-8666-666666666666', '66666666666666666', 'kanban_pending', 'pending');
+  ('b6666666-6666-4666-8666-666666666666', '66666666666666666', 'kanban_pending', 'pending'),
+  ('b7777777-7777-4777-8777-777777777777', '77777777777777777', 'kanban_assignee', 'active');
 
 insert into public.projects (id, name, created_by)
 values ('b4444444-4444-4444-8444-444444444444', 'Kanban access fixture', 'b1111111-1111-4111-8111-111111111111');
 
 insert into public.project_members (project_id, profile_id, added_by)
-values ('b4444444-4444-4444-8444-444444444444', 'b1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111');
+values
+  ('b4444444-4444-4444-8444-444444444444', 'b1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111'),
+  ('b4444444-4444-4444-8444-444444444444', 'b7777777-7777-4777-8777-777777777777', 'b1111111-1111-4111-8111-111111111111');
 
 select set_config('request.jwt.claim.sub', 'b1111111-1111-4111-8111-111111111111', true);
 set local role authenticated;
@@ -234,6 +252,16 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.create_project_with_creator(text, text, text, date, date)', 'execute'),
   'anonymous users cannot execute the project-creation RPC'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.create_task_with_assignees(uuid, uuid, text, text, text, timestamptz, uuid[])', 'execute'),
+  'authenticated users may create a task through the atomic RPC'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.create_task_with_assignees(uuid, uuid, text, text, text, timestamptz, uuid[])', 'execute'),
+  'anonymous users cannot execute the task-creation RPC'
 );
 
 select throws_like(
@@ -285,6 +313,55 @@ select throws_like(
   $$,
   '%row-level security%',
   'a project member cannot add a pending profile through REST'
+);
+
+select lives_ok(
+  $$
+    select public.create_task_with_assignees(
+      'b4444444-4444-4444-8444-444444444444',
+      (select id from public.kanban_columns where position = 1000),
+      'Atomic task fixture',
+      '',
+      '#6D4AFF',
+      null,
+      array['b7777777-7777-4777-8777-777777777777'::uuid]
+    )
+  $$,
+  'an active project member creates a task and assignee through the RPC'
+);
+
+select is(
+  (
+    select count(*)
+    from public.tasks
+    join public.task_assignees on task_assignees.task_id = tasks.id
+    where tasks.title = 'Atomic task fixture'
+      and task_assignees.profile_id = 'b7777777-7777-4777-8777-777777777777'
+  ),
+  1::bigint,
+  'the task RPC creates its assignees atomically'
+);
+
+select throws_like(
+  $$
+    select public.create_task_with_assignees(
+      'b4444444-4444-4444-8444-444444444444',
+      (select id from public.kanban_columns where position = 1000),
+      'Rejected atomic task fixture',
+      '',
+      '#6D4AFF',
+      null,
+      array['b3333333-3333-4333-8333-333333333333'::uuid]
+    )
+  $$,
+  '%task creation is not allowed%',
+  'the task RPC rejects an assignee outside the project'
+);
+
+select is(
+  (select count(*) from public.tasks where title = 'Rejected atomic task fixture'),
+  0::bigint,
+  'a rejected assignee leaves no task behind'
 );
 
 select lives_ok(
@@ -345,7 +422,7 @@ select is_empty(
 );
 
 -- Real local scenarios to run alongside this pgTAP file:
--- 1. In two browser sessions, create a project as A, bootstrap A's membership,
+-- 1. In two browser sessions, create a project as A through the RPC,
 --    then verify B cannot open its tasks, comments, attachments, or storage object.
 -- 2. Add B as a member and verify B can create, move, comment on, and attach
 --    metadata to a task; remove B and verify each operation is denied again.

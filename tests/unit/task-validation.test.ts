@@ -35,6 +35,12 @@ describe("taskSchema", () => {
     expect(parsed.assigneeIds).toEqual([]);
   });
 
+  it("rejects the same assignee more than once", () => {
+    const assigneeId = "68d727c8-dbc8-4856-a387-e22722d7f4d2";
+
+    expect(taskSchema.safeParse({ ...validTask, assigneeIds: [assigneeId, assigneeId] }).success).toBe(false);
+  });
+
   it("rejects an invalid deadline or color", () => {
     expect(taskSchema.safeParse({ ...validTask, dueAt: "tomorrow" }).success).toBe(false);
     expect(taskSchema.safeParse({ ...validTask, color: "violet" }).success).toBe(false);

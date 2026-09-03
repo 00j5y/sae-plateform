@@ -4,7 +4,6 @@ import "server-only";
 
 import { getCurrentMemberAccess } from "@/lib/auth/access";
 import { createClient } from "@/lib/supabase/server";
-import { nextPosition } from "@/lib/tasks/reorder";
 import { taskInputFromFormData, taskSchema } from "@/lib/validations/task";
 
 type TaskSummary = {
@@ -69,19 +68,6 @@ async function assigneesBelongToProject(caller: ActiveCaller, projectId: string,
   return assigneeIds.every((assigneeId) => memberIds.has(assigneeId));
 }
 
-function numericPosition(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
 export async function createTask(formData: FormData): Promise<TaskActionResult> {
   try {
     const caller = await getActiveCaller();
@@ -112,53 +98,19 @@ export async function createTask(formData: FormData): Promise<TaskActionResult> 
       return { ok: false, message: "Chaque membre assigné doit appartenir au projet." };
     }
 
-    const { data: lastTask, error: positionError } = await caller.supabase
-      .from("tasks")
-      .select("position")
-      .eq("project_id", parsed.data.projectId)
-      .eq("column_id", parsed.data.columnId)
-      .order("position", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (positionError) {
-      return { ok: false, message: "Impossible de créer la tâche pour le moment." };
-    }
-
-    const previousPosition = numericPosition((lastTask as { position?: unknown } | null)?.position);
-    const position = nextPosition(previousPosition, null);
-
-    const { data: task, error: taskError } = await caller.supabase
-      .from("tasks")
-      .insert({
-        project_id: parsed.data.projectId,
-        column_id: parsed.data.columnId,
-        title: parsed.data.title,
-        description: parsed.data.description,
-        color: parsed.data.color,
-        due_at: parsed.data.dueAt,
-        position,
-        created_by: caller.userId
-      })
-      .select("id, title")
-      .maybeSingle();
+    const { data: task, error: taskError } = await caller.supabase.rpc("create_task_with_assignees", {
+      p_project_id: parsed.data.projectId,
+      p_column_id: parsed.data.columnId,
+      p_title: parsed.data.title,
+      p_description: parsed.data.description,
+      p_color: parsed.data.color,
+      p_due_at: parsed.data.dueAt,
+      p_assignee_ids: parsed.data.assigneeIds
+    });
 
     const createdTask = task as TaskSummary | null;
     if (taskError || !createdTask) {
       return { ok: false, message: "Impossible de créer la tâche pour le moment." };
-    }
-
-    if (parsed.data.assigneeIds.length > 0) {
-      const { error: assigneeError } = await caller.supabase
-        .from("task_assignees")
-        .insert(parsed.data.assigneeIds.map((profileId) => ({
-          task_id: createdTask.id,
-          profile_id: profileId
-        })));
-
-      if (assigneeError) {
-        return { ok: false, message: "La tâche a été créée, mais les assignations n’ont pas pu être ajoutées." };
-      }
     }
 
     return { ok: true, task: { id: createdTask.id, title: createdTask.title } };

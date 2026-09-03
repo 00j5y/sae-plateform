@@ -434,3 +434,125 @@ $$;
 
 revoke all on function public.create_project_with_creator(text, text, text, date, date) from public;
 grant execute on function public.create_project_with_creator(text, text, text, date, date) to authenticated;
+
+create or replace function public.create_task_with_assignees(
+  p_project_id uuid,
+  p_column_id uuid,
+  p_title text,
+  p_description text,
+  p_color text,
+  p_due_at timestamptz,
+  p_assignee_ids uuid[]
+)
+returns public.tasks
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  current_profile_id uuid := auth.uid();
+  created_task public.tasks;
+  task_position numeric;
+begin
+  if current_profile_id is null then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if not exists (
+    select 1
+    from public.profiles
+    where id = current_profile_id
+      and status = 'active'
+  ) then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if not exists (
+    select 1
+    from public.project_members
+    join public.profiles on profiles.id = project_members.profile_id
+    where project_members.project_id = p_project_id
+      and project_members.profile_id = current_profile_id
+      and profiles.status = 'active'
+  ) then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if not exists (
+    select 1
+    from public.kanban_columns
+    where id = p_column_id
+  ) then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if p_title is null or char_length(trim(p_title)) not between 1 and 160 then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if p_description is null or char_length(p_description) > 10000 then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if p_color is null or p_color !~ '^#[0-9A-Fa-f]{6}$' then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  p_assignee_ids := coalesce(p_assignee_ids, array[]::uuid[]);
+
+  if coalesce(array_length(p_assignee_ids, 1), 0) <> (
+    select count(distinct profile_id)
+    from unnest(p_assignee_ids) as requested(profile_id)
+  ) then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  if coalesce(array_length(p_assignee_ids, 1), 0) <> (
+    select count(*)
+    from unnest(p_assignee_ids) as requested(profile_id)
+    join public.project_members on project_members.project_id = p_project_id
+      and project_members.profile_id = requested.profile_id
+    join public.profiles on profiles.id = requested.profile_id
+      and profiles.status = 'active'
+  ) then
+    raise exception 'task creation is not allowed';
+  end if;
+
+  select coalesce(max(position), 0) + 1000
+  into task_position
+  from public.tasks
+  where project_id = p_project_id
+    and column_id = p_column_id;
+
+  insert into public.tasks (
+    project_id,
+    column_id,
+    title,
+    description,
+    color,
+    due_at,
+    position,
+    created_by
+  )
+  values (
+    p_project_id,
+    p_column_id,
+    trim(p_title),
+    p_description,
+    p_color,
+    p_due_at,
+    task_position,
+    current_profile_id
+  )
+  returning * into created_task;
+
+  insert into public.task_assignees (task_id, profile_id)
+  select created_task.id, requested.profile_id
+  from unnest(p_assignee_ids) as requested(profile_id);
+
+  return created_task;
+end;
+$$;
+
+revoke all on function public.create_task_with_assignees(uuid, uuid, text, text, text, timestamptz, uuid[]) from public;
+grant execute on function public.create_task_with_assignees(uuid, uuid, text, text, text, timestamptz, uuid[]) to authenticated;
