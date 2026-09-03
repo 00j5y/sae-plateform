@@ -391,3 +391,62 @@ using (
       and public.is_project_member(tasks.project_id)
   )
 );
+
+create or replace function public.create_project_with_creator(
+  p_name text,
+  p_description text,
+  p_color text,
+  p_starts_on date,
+  p_ends_on date
+)
+returns public.projects
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  current_profile_id uuid := auth.uid();
+  created_project public.projects;
+begin
+  if current_profile_id is null then
+    raise exception 'authentication required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.profiles
+    where id = current_profile_id
+      and status = 'active'
+  ) then
+    raise exception 'active membership required';
+  end if;
+
+  if p_name is null or char_length(trim(p_name)) not between 1 and 100 then
+    raise exception 'invalid project name';
+  end if;
+
+  if p_description is null or char_length(p_description) > 10000 then
+    raise exception 'invalid project description';
+  end if;
+
+  if p_color is null or p_color !~ '^#[0-9A-Fa-f]{6}$' then
+    raise exception 'invalid project color';
+  end if;
+
+  if p_starts_on is not null and p_ends_on is not null and p_ends_on < p_starts_on then
+    raise exception 'invalid project dates';
+  end if;
+
+  insert into public.projects (name, description, color, starts_on, ends_on, created_by)
+  values (trim(p_name), p_description, p_color, p_starts_on, p_ends_on, current_profile_id)
+  returning * into created_project;
+
+  insert into public.project_members (project_id, profile_id, added_by)
+  values (created_project.id, current_profile_id, current_profile_id);
+
+  return created_project;
+end;
+$$;
+
+revoke all on function public.create_project_with_creator(text, text, text, date, date) from public;
+grant execute on function public.create_project_with_creator(text, text, text, date, date) to authenticated;
