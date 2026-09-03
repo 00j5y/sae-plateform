@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 
+import { DashboardOverview } from "@/components/dashboard/overview";
 import { destinationForStatus, getCurrentMemberAccess } from "@/lib/auth/access";
+import { getCalendarData } from "@/lib/calendar/data";
+import { parseCalendarFilters } from "@/lib/calendar/query";
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const access = await getCurrentMemberAccess();
 
   if (!access) {
@@ -13,11 +16,8 @@ export default async function HomePage() {
     redirect(destinationForStatus(access.status));
   }
 
-  return (
-    <main className="page-content">
-      <p className="eyebrow">Tableau de bord</p>
-      <h1>SAE Platform</h1>
-      <p>Ton accès est actif. Les outils SAE arriveront ici.</p>
-    </main>
-  );
+  const raw = await searchParams;
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(raw)) if (typeof value === "string") params.set(key, value);
+  return <DashboardOverview {...await getCalendarData()} filters={parseCalendarFilters(params)} />;
 }

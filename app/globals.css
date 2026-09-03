@@ -125,6 +125,12 @@ button {
   margin: 0 auto;
   align-items: center;
   justify-content: space-between;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-top: 0;
+  border-radius: 0 0 1rem 1rem;
+  padding: 0 1rem;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 .app-header nav {
@@ -238,6 +244,41 @@ button {
 .page-heading aside ul { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 0; padding: 0; list-style: none; }
 .page-heading aside li { color: var(--muted); font-size: .9rem; }
 
+.calendar-page,
+.dashboard-page { width: min(100% - 2rem, 90rem); margin: clamp(1.5rem, 5vw, 4rem) auto; }
+.calendar-toolbar { display: flex; gap: 1rem; align-items: end; justify-content: space-between; margin-bottom: 1rem; }
+.calendar-filters { display: grid; grid-template-columns: repeat(5, minmax(8rem, 1fr)); gap: .75rem; width: 100%; margin: 0; padding: 0; border: 0; }
+.calendar-filters legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.calendar-filters label { display: grid; gap: .35rem; font-size: .9rem; font-weight: 650; }
+.calendar-filters select, .calendar-filters input { width: 100%; min-height: 2.5rem; border: 1px solid var(--border); border-radius: .65rem; padding: .55rem .65rem; color: var(--foreground); background: var(--surface); font: inherit; }
+.calendar-filters .calendar-hide-done { display: flex; align-items: end; padding-bottom: .55rem; font-weight: 500; }
+.calendar-filters .calendar-hide-done input { width: auto; min-height: auto; }
+.calendar-shell { min-width: 0; }
+.calendar-shell .fc { border: 1px solid var(--border); border-radius: 1rem; padding: clamp(.5rem, 2vw, 1rem); background: var(--surface); box-shadow: 0 12px 36px rgb(0 0 0 / 6%); }
+.calendar-shell .fc .fc-button { border-color: var(--border); background: var(--background); color: var(--foreground); box-shadow: none; text-transform: none; }
+.calendar-shell .fc .fc-button-primary:not(:disabled).fc-button-active, .calendar-shell .fc .fc-button-primary:not(:disabled):active { border-color: var(--focus); background: var(--focus); color: white; }
+.calendar-shell .fc-theme-standard td, .calendar-shell .fc-theme-standard th, .calendar-shell .fc-theme-standard .fc-scrollgrid { border-color: var(--border); }
+.calendar-shell .fc .fc-daygrid-day-number, .calendar-shell .fc .fc-col-header-cell-cushion { padding: .45rem; color: var(--foreground); text-decoration: none; }
+.calendar-shell .fc-event { border: 0; border-radius: .45rem; padding: .1rem .25rem; color: white; }
+.calendar-shell .fc-event.calendar-event-editable { cursor: pointer; }
+.calendar-shell .fc-event.calendar-task-readonly { opacity: .72; cursor: default; }
+.calendar-shell .fc-list-event-title a { color: inherit; }
+.calendar-dialog-actions { display: flex; gap: .75rem; align-items: center; }
+
+.dashboard-page { display: grid; gap: 1rem; }
+.dashboard-page > .page-heading { margin-bottom: .25rem; }
+.dashboard-card { padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); box-shadow: 0 12px 36px rgb(0 0 0 / 6%); }
+.dashboard-card h2 { margin: 0 0 .5rem; font-size: 1.15rem; }
+.dashboard-card > p, .section-heading p { color: var(--muted); }
+.section-heading { display: flex; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.section-heading h2, .section-heading p { margin: 0; }
+.section-heading .secondary-button { display: inline-grid; place-items: center; text-decoration: none; white-space: nowrap; }
+.calendar-compact .fc { box-shadow: none; }
+.calendar-compact .fc-list { border: 0; }
+.deadline-list, .kanban-totals { display: grid; gap: .6rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+.deadline-list li, .kanban-totals li { display: flex; gap: 1rem; justify-content: space-between; padding: .65rem .75rem; border-radius: .7rem; background: var(--background); }
+.deadline-list span { color: var(--muted); font-size: .9rem; }
+
 .kanban-shell { min-width: 0; }
 .kanban-toolbar { display: flex; gap: 1rem; align-items: end; justify-content: space-between; margin-bottom: 1rem; }
 .kanban-filters { display: grid; grid-template-columns: repeat(6, minmax(7rem, 1fr)); gap: .75rem; width: 100%; margin: 0; padding: 0; border: 0; }
@@ -318,6 +359,15 @@ button {
   .kanban-columns { display: block; overflow: visible; padding: 0; }
   .kanban-column-wrapper[data-mobile-hidden] { display: none; }
   .kanban-column { min-height: 55vh; }
+  .calendar-page, .dashboard-page { width: min(100% - 1rem, 90rem); margin-top: 1rem; }
+  .calendar-toolbar { display: grid; align-items: stretch; }
+  .calendar-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-filters .filter-search, .calendar-filters .calendar-hide-done { grid-column: span 2; }
+  .calendar-toolbar > .primary-button { width: 100%; }
+  .calendar-shell .fc-header-toolbar { display: grid; gap: .65rem; }
+  .calendar-shell .fc-toolbar-chunk { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .section-heading { align-items: start; flex-direction: column; }
+  .section-heading .secondary-button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -328,6 +378,10 @@ button {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .calendar-shell .fc-event {
+    transition-property: opacity !important;
   }
 }
 
